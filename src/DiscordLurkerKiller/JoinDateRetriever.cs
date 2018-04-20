@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Net.Http;
 using Newtonsoft.Json.Linq;
 
@@ -19,24 +20,29 @@ namespace DiscordLurkerKiller
             _httpClient = httpClient;
         }
 
-        public Dictionary<ulong, DateTime> GetJoinDates()
+        public Dictionary<ulong, DiscordMemberInfo> GetJoinDates()
         {
             var joinDatesJson = GetJoinDatesJson();
             var joinDateDictionary = GetDictionaryFromJoinDateJson(joinDatesJson);
             return joinDateDictionary;
         }
 
-        private Dictionary<ulong, DateTime> GetDictionaryFromJoinDateJson(string json)
+        private Dictionary<ulong, DiscordMemberInfo> GetDictionaryFromJoinDateJson(string json)
         {
             var array = JArray.Parse(json);
-            var dict = new Dictionary<ulong, DateTime>();
+            var dict = new Dictionary<ulong, DiscordMemberInfo>();
             foreach (var member in array)
             {
                 var user = member["user"];
                 var id = ulong.Parse(user.Value<string>("id"));
                 var joinDate = DateTime.Parse(member.Value<string>("joined_at"));
+                var roles = new HashSet<ulong>(member["roles"].Values<ulong>().ToList());
 
-                dict.Add(id, joinDate);
+                dict.Add(id, new DiscordMemberInfo
+                {
+                    JoinDate = joinDate,
+                    Roles = roles
+                });
             }
 
             return dict;
