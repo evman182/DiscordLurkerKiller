@@ -32,7 +32,7 @@ namespace DiscordLurkerKiller
             var unsafeLurkersOlderThan30Days = lastActivityInfo.Where(x => UserIsUnsafeLurker(joinDates, x)).ToList();
 
             var accountsToBeWarned = unsafeLurkersOlderThan30Days
-                .Where(x => x.LastSpokeDate > DateTime.UtcNow.AddDays(-44))
+                .Where(x => x.LastSpokeDate > DateTime.UtcNow.AddDays(-44) && !UserHasAlreadyBeenWarned(x.Id))
                 .Select(x => x.Id)
                 .ToList();
 
@@ -50,6 +50,12 @@ namespace DiscordLurkerKiller
             discordAnnouncer.AnnounceWarnings(accountsToBeWarned);
             discordAnnouncer.AnnounceTomorrowsKicks(accountsGoingTomorrow);
             discordAnnouncer.AnnounceKicks(accountsToKick);
+        }
+
+        private static bool UserHasAlreadyBeenWarned(ulong userId)
+        {
+            var dmMessages = DiscordClient.GetDMChannelAsync(userId).Result.GetMessagesAsync().FlattenAsync().Result;
+            return dmMessages.Any(d => d.Timestamp > DateTimeOffset.UtcNow.AddDays(-25));
         }
 
         private static bool UserIsUnsafeLurker(Dictionary<ulong, DiscordMemberInfo> joinDates, UserActivityInfo userActivityInfo)
