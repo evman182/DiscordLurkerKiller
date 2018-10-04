@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Net.Http;
+using System.Threading.Tasks;
 using Newtonsoft.Json.Linq;
 
 namespace DiscordLurkerKiller
@@ -20,9 +21,9 @@ namespace DiscordLurkerKiller
             _httpClient = httpClient;
         }
 
-        public Dictionary<ulong, DiscordMemberInfo> GetJoinDates()
+        public async Task<Dictionary<ulong, DiscordMemberInfo>> GetJoinDatesAsync()
         {
-            var joinDatesJson = GetJoinDatesJson();
+            var joinDatesJson = await GetJoinDatesJsonAsync();
             var joinDateDictionary = GetDictionaryFromJoinDateJson(joinDatesJson);
             return joinDateDictionary;
         }
@@ -48,16 +49,16 @@ namespace DiscordLurkerKiller
             return dict;
         }
 
-        private string GetJoinDatesJson()
+        private async Task<string> GetJoinDatesJsonAsync()
         {
             var request = new HttpRequestMessage(HttpMethod.Get, string.Format(GuildMembersApiUrl, _guildId));
             request.Headers.Clear();
             request.Headers.Add("Authorization", $"Bot {_botToken}");
             request.Headers.Add("User-Agent", "DiscordBot (DiscordLurkerKiller, 1.0)");
-            var response = _httpClient.SendAsync(request).Result;
+            var response = await _httpClient.SendAsync(request);
             if (!response.IsSuccessStatusCode)
                 throw new Exception($"Error retrieving join dates: {response.ReasonPhrase}");
-            var responseBody = response.Content.ReadAsStringAsync().Result;
+            var responseBody = await response.Content.ReadAsStringAsync();
             return responseBody;
         }
     }

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Net.Http;
 using System.Text.RegularExpressions;
 using System.Threading;
+using System.Threading.Tasks;
 using Discord;
 using Discord.Rest;
 
@@ -23,18 +24,17 @@ namespace DiscordLurkerKiller
             _purgeChannel = discordClient.GetGuildAsync(guildId).Result.GetTextChannelAsync(channelId).Result;
         }
 
-        public List<UserActivityInfo> GetActivityDates()
+        public async Task<List<UserActivityInfo>> GetActivityDatesAsync()
         {
-            var fileUrl = GetActivityDataFileUrl();
-            var inactivityData = DownloadInactivityData(fileUrl);
+            var fileUrl = await GetActivityDataFileUrlAsync();
+            var inactivityData = await DownloadInactivityDataAsync(fileUrl);
             var userActivityDates = ParseInactivityData(inactivityData);
             return userActivityDates;
         }
 
-        private void BegForUserToRunFindOldCommand()
+        private async Task BegForUserToRunFindOldCommandAsync()
         {
-            
-            _purgeChannel.SendMessageAsync($"<@{_idToBeg}> Please enter **'findold 0** into this channel in the next hour").Wait();
+            await _purgeChannel.SendMessageAsync($"<@{_idToBeg}> Please enter **'findold 0** into this channel in the next hour");
         }
 
         private List<UserActivityInfo> ParseInactivityData(string inactivityData)
@@ -60,18 +60,18 @@ namespace DiscordLurkerKiller
             return activityInfos;
         }
 
-        private string DownloadInactivityData(string fileUrl)
+        private async Task<string> DownloadInactivityDataAsync(string fileUrl)
         {
-            return _httpClient.GetStringAsync(fileUrl).Result;
+            return await _httpClient.GetStringAsync(fileUrl);
         }
 
-        private string GetActivityDataFileUrl()
+        private async Task<string> GetActivityDataFileUrlAsync()
         {
             var stopTime = DateTime.Now.AddHours(1);
             var beggedYet = false;
             while (DateTime.Now <= stopTime)
             {
-                var last100Messages = _purgeChannel.GetMessagesAsync().FlattenAsync().Result;
+                var last100Messages = await _purgeChannel.GetMessagesAsync().FlattenAsync();
 
                 var mostRecentFindOldResponse = last100Messages
                     .Where(m => m.Timestamp > DateTimeOffset.UtcNow.AddHours(-2) &&
@@ -90,10 +90,10 @@ namespace DiscordLurkerKiller
                 if (!beggedYet)
                 {
                     beggedYet = true;
-                    BegForUserToRunFindOldCommand();
+                    await BegForUserToRunFindOldCommandAsync();
                 }
 
-                Thread.Sleep(3 * 60 * 1000);
+                Thread.Sleep(60 * 1000);
             }
             
                 throw new Exception("Failed to retrieve activity dates");
