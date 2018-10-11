@@ -26,7 +26,6 @@ namespace DiscordLurkerKiller
 
         static async Task Main(string[] args)
         {
-
             await DiscordClient.LoginAsync(TokenType.Bot, DiscordBotToken);
             var discordInactivityRetriever =
                 new DiscordInactivityRetriever(DiscordClient, HttpClient, GuildId, PurgeLogChannelId, IdToBeg);
@@ -41,17 +40,20 @@ namespace DiscordLurkerKiller
             var accountsToBeWarned = unsafeUsersOlderThanMinimumAccountAge
                 .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToWarn)
                 .Select(x => x.Id)
+                .OrderBy(x => x)
                 .ToList();
 
             var accountsGoingTomorrow = unsafeUsersOlderThanMinimumAccountAge
                 .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > (DaysLurkingToKick - 1)
                             && TimeSinceLastSpoke(x.LastSpokeDate) <= DaysLurkingToKick)
                 .Select(x => x.Id)
+                .OrderBy(x => x)
                 .ToList();
 
             var accountsToKick = unsafeUsersOlderThanMinimumAccountAge
                 .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToKick)
                 .Select(x => x.Id)
+                .OrderBy(x => x)
                 .ToList();
 
             var discordAnnouncer = new DiscordAnnouncer(DiscordClient, GuildId, PurgeLogChannelId);

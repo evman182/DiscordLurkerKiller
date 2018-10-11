@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 using Discord;
 using Discord.Rest;
@@ -37,9 +38,49 @@ namespace DiscordLurkerKiller
         public async Task AnnounceAndSendWarningsAsync(List<ulong> accountsToBeWarned)
         {
             accountsToBeWarned = accountsToBeWarned.Where(a => !UserHasAlreadyBeenWarned(a)).ToList();
-            var textToSend = "Warning Accounts:\n" + string.Join("\n", accountsToBeWarned.Select(GetUserName).ToList());
-            await _purgeChannel.SendMessageAsync(textToSend);
-            await SendWarningsAsync(accountsToBeWarned);
+            foreach (var chunkOf50ToBeWarned in SplitList(accountsToBeWarned, 50).ToList())
+            {
+                var textToSend = "Warning Accounts:\n" + string.Join("\n", chunkOf50ToBeWarned.Select(GetUserName).ToList());
+                var splitTextToSend = SplitTextInto2000CharChunk(textToSend);
+                foreach (var text in splitTextToSend)
+                {
+                    await _purgeChannel.SendMessageAsync(text);
+                }
+
+                await SendWarningsAsync(chunkOf50ToBeWarned);
+                await _purgeChannel.SendMessageAsync("Batch finished. Sleeping for 15 minutes. ZZzzz");
+                Thread.Sleep(15 * 60 * 1000); //15 Minutes
+            }
+        }
+
+        private static List<string> SplitTextInto2000CharChunk(string textToSend)
+        {
+            if(textToSend.Length <= 2000)
+                return new List<string>{textToSend};
+
+            var l = new List<string>();
+            while (textToSend.Length > 0)
+            {
+                if (textToSend.Length <= 2000)
+                {
+                    l.Add(textToSend);
+                    break;
+                }
+
+                var nextBreak = textToSend.Substring(0, 2000).LastIndexOf("\n");
+                l.Add(textToSend.Substring(0, nextBreak + 1));
+                textToSend = textToSend.Substring(nextBreak + 1);
+            }
+
+            return l;
+        }
+
+        private static IEnumerable<List<T>> SplitList<T>(List<T> list, int nSize)
+        {
+            for (int i = 0; i < list.Count; i += nSize)
+            {
+                yield return list.GetRange(i, Math.Min(nSize, list.Count - i));
+            }
         }
 
         public async Task AnnounceTomorrowsKicksAsync(List<ulong> accountsGoingTomorrow)
@@ -60,13 +101,23 @@ namespace DiscordLurkerKiller
                 @"Hi, you have been inactive on the rNycMeetups server for a while. If you don't start participating in the next few days you'll be kicked from the server. Don't worry though, it's not a ban, and you can always come back using the invite link on the subreddit sidebar. This bot won't respond to replies, so if you have any questions you should ask the mods on the server.";
             foreach (var account in accountsToBeWarned)
             {
-                var user = await _guild.GetUserAsync(account);
-                if (user != null)
+                if (_userDict.TryGetValue(account, out var user))
                 {
-                    var dm = await user.GetOrCreateDMChannelAsync();
-                    if (dm != null)
+                    if (user != null)
                     {
-                        await dm.SendMessageAsync(warningText);
+                        try
+                        {
+                            var dm = await user.GetOrCreateDMChannelAsync();
+                            if (dm != null)
+                            {
+                                await dm.SendMessageAsync(warningText);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            var exceptionMessage = ex.Message.Substring(0, Math.Min(ex.Message.Length, 2000));
+                            await _purgeChannel.SendMessageAsync($"Could not send Lurker warning to user {user}: {exceptionMessage}");
+                        }
                     }
                 }
             }
@@ -75,17 +126,19 @@ namespace DiscordLurkerKiller
         // User has been DMed in last 10 days
         private bool UserHasAlreadyBeenWarned(ulong userId)
         {
-            var user = _guild.GetUserAsync(userId).Result;
-            if (user != null)
+            if (_userDict.TryGetValue(userId, out var user))
             {
-                var dm = user.GetOrCreateDMChannelAsync().Result;
-                if (dm != null)
+                if (user != null)
                 {
-                    var dmMessages = dm.GetMessagesAsync().FlattenAsync().Result;
-                    if (dmMessages != null)
+                    var dm = user.GetOrCreateDMChannelAsync().Result;
+                    if (dm != null)
                     {
-                        var now = DateTimeOffset.UtcNow;
-                        return dmMessages.Any(d => (now - d.Timestamp).TotalDays < 10);
+                        var dmMessages = dm.GetMessagesAsync().FlattenAsync().Result;
+                        if (dmMessages != null)
+                        {
+                            var now = DateTimeOffset.UtcNow;
+                            return dmMessages.Any(d => (now - d.Timestamp).TotalDays < 10);
+                        }
                     }
                 }
             }
@@ -97,8 +150,10 @@ namespace DiscordLurkerKiller
         {
             foreach (var a in accountsToKick)
             {
-                var user = await _guild.GetUserAsync(a);
-                await user.KickAsync();
+                if (_userDict.TryGetValue(a, out var user))
+                {
+                    await user.KickAsync();
+                }
             }
         }
     }
