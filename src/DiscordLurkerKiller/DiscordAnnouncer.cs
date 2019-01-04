@@ -13,9 +13,11 @@ namespace DiscordLurkerKiller
         private readonly RestTextChannel _purgeChannel;
         private readonly RestGuild _guild;
         private readonly Dictionary<ulong, RestGuildUser> _userDict;
+        private readonly string _warningText;
 
-        public DiscordAnnouncer(DiscordRestClient discordClient, ulong guildId, ulong purgeLogChannelId)
+        public DiscordAnnouncer(DiscordRestClient discordClient, ulong guildId, ulong purgeLogChannelId, string warningText)
         {
+            _warningText = warningText;
             _guild = discordClient.GetGuildAsync(guildId).Result;
             _purgeChannel = _guild.GetTextChannelAsync(purgeLogChannelId).Result;
             _userDict = _guild.GetUsersAsync().FlattenAsync().Result.ToDictionary(u => u.Id, u => u);
@@ -92,8 +94,6 @@ namespace DiscordLurkerKiller
 
         public async Task SendWarningsAsync(List<ulong> accountsToBeWarned)
         {
-            const string warningText =
-                @"Hi, you have been inactive on the rNycMeetups server for a while. If you don't start participating in the next few days you'll be kicked from the server. Don't worry though, it's not a ban, and you can always come back using the invite link on the subreddit sidebar. This bot won't respond to replies, so if you have any questions you should ask the mods on the server.";
             foreach (var account in accountsToBeWarned)
             {
                 if (_userDict.TryGetValue(account, out var user))
@@ -105,7 +105,7 @@ namespace DiscordLurkerKiller
                             var dm = await user.GetOrCreateDMChannelAsync();
                             if (dm != null)
                             {
-                                await dm.SendMessageAsync(warningText);
+                                await dm.SendMessageAsync(_warningText);
                             }
                         }
                         catch (Exception ex)

@@ -10,6 +10,7 @@
     <add key="IdToBeg" value=""/>
     <add key="SafeRoleIds" value=""/>
     <add key="SafeUserIds" value=""/>
+    <add key="WarningText" value=""/>
   </appSettings>
   <runtime>
     <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">

@@ -16,6 +16,7 @@ namespace DiscordLurkerKiller
         private static readonly string DiscordBotToken = ConfigurationManager.AppSettings["DiscordBotToken"];
         private static readonly ulong PurgeLogChannelId = ulong.Parse(ConfigurationManager.AppSettings["PurgeChannelId"]);
         private static readonly ulong IdToBeg = ulong.Parse(ConfigurationManager.AppSettings["IdToBeg"]);
+        private static readonly string WarningText = ConfigurationManager.AppSettings["WarningText"];
         private static readonly List<ulong> SafeRoleIds = GetSafeRoleIds();
         private static readonly DiscordRestClient DiscordClient = new DiscordRestClient();
         private static readonly DateTime CurrentTime = DateTime.UtcNow;
@@ -68,7 +69,7 @@ namespace DiscordLurkerKiller
                 .OrderBy(x => x)
                 .ToList();
 
-            var discordAnnouncer = new DiscordAnnouncer(DiscordClient, GuildId, PurgeLogChannelId);
+            var discordAnnouncer = new DiscordAnnouncer(DiscordClient, GuildId, PurgeLogChannelId, WarningText);
             await discordAnnouncer.AnnounceAndSendWarningsAsync(accountsToBeWarned);
             await discordAnnouncer.AnnounceTomorrowsKicksAsync(accountsGoingTomorrow);
             await discordAnnouncer.AnnounceKicksAsync(accountsToKick);
