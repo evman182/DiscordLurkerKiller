@@ -19,8 +19,9 @@ namespace DiscordLurkerKiller
         private static readonly List<ulong> SafeRoleIds = GetSafeRoleIds();
         private static readonly DiscordRestClient DiscordClient = new DiscordRestClient();
         private static readonly DateTime CurrentTime = DateTime.UtcNow;
-        private const int MinimumAccountAge = 30;
-        private const int DaysLurkingToWarn = 27;
+        private static readonly List<ulong> SafeUserIds = GetSafeUserIds();
+        private const int MinimumAccountAge = 90;
+        private const int WarningHeadsUpNumberDays = 3;
         private const int DaysLurkingToKick = 30;
 
 
@@ -34,24 +35,35 @@ namespace DiscordLurkerKiller
             var joinDateRetriever = new JoinDateRetriever(HttpClient, GuildId, DiscordBotToken);
             var joinDates = await joinDateRetriever.GetJoinDatesAsync();
 
-            var unsafeUsersOlderThanMinimumAccountAge =
-                lastActivityInfo.Where(x => UserIsUnsafeAndOlderThanMinimumAccountAge(joinDates, x)).ToList();
+            lastActivityInfo = lastActivityInfo.Where(i => joinDates.ContainsKey(i.Id)).ToList();
+            lastActivityInfo.ForEach(i =>
+            {
+                var userInfo = joinDates[i.Id];
+                i.JoinDate = userInfo.JoinDate;
+                i.Roles = userInfo.Roles;
+            });
 
-            var accountsToBeWarned = unsafeUsersOlderThanMinimumAccountAge
-                .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToWarn)
+            var unsafeUsers = lastActivityInfo.Where(i => RolesAreNotSafeRole(i.Roles)
+                                                          && !SafeUserIds.Contains(i.Id)).ToList();
+
+            var accountsToBeWarned = unsafeUsers
+                .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToKick - WarningHeadsUpNumberDays
+                            && UserIsOlderThanNumberOfDays(x, MinimumAccountAge))
                 .Select(x => x.Id)
                 .OrderBy(x => x)
                 .ToList();
 
-            var accountsGoingTomorrow = unsafeUsersOlderThanMinimumAccountAge
+            var accountsGoingTomorrow = unsafeUsers
                 .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > (DaysLurkingToKick - 1)
-                            && TimeSinceLastSpoke(x.LastSpokeDate) <= DaysLurkingToKick)
+                            && TimeSinceLastSpoke(x.LastSpokeDate) <= DaysLurkingToKick
+                            && UserIsOlderThanNumberOfDays(x, WarningHeadsUpNumberDays + MinimumAccountAge - 1))
                 .Select(x => x.Id)
                 .OrderBy(x => x)
                 .ToList();
 
-            var accountsToKick = unsafeUsersOlderThanMinimumAccountAge
-                .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToKick)
+            var accountsToKick = unsafeUsers
+                .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToKick
+                            && UserIsOlderThanNumberOfDays(x, WarningHeadsUpNumberDays + MinimumAccountAge))
                 .Select(x => x.Id)
                 .OrderBy(x => x)
                 .ToList();
@@ -64,12 +76,9 @@ namespace DiscordLurkerKiller
 
         }
 
-        private static bool UserIsUnsafeAndOlderThanMinimumAccountAge(Dictionary<ulong, DiscordMemberInfo> joinDates, UserActivityInfo userActivityInfo)
+        private static bool UserIsOlderThanNumberOfDays(UserActivityInfo userInfo, int days)
         {
-            if (!joinDates.ContainsKey(userActivityInfo.Id))
-                return false;
-            var userInfo = joinDates[userActivityInfo.Id];
-            return userInfo.JoinDate < DateTime.UtcNow.AddDays(-1 * MinimumAccountAge) && RolesAreNotSafeRole(userInfo.Roles);
+            return userInfo.JoinDate < DateTime.UtcNow.AddDays(-1 * days);
         }
 
         private static bool RolesAreNotSafeRole(HashSet<ulong> userRoles)
@@ -90,6 +99,15 @@ namespace DiscordLurkerKiller
         {
             var safeRoleIdsString = ConfigurationManager.AppSettings["SafeRoleIds"];
             if(string.IsNullOrWhiteSpace(safeRoleIdsString))
+                return new List<ulong>();
+
+            return safeRoleIdsString.Split(',').Select(ulong.Parse).ToList();
+        }
+
+        private static List<ulong> GetSafeUserIds()
+        {
+            var safeRoleIdsString = ConfigurationManager.AppSettings["SafeUserIds"];
+            if (string.IsNullOrWhiteSpace(safeRoleIdsString))
                 return new List<ulong>();
 
             return safeRoleIdsString.Split(',').Select(ulong.Parse).ToList();

@@ -8,7 +8,8 @@
     <add key="DiscordGuildId" value=""/>
     <add key="PurgeChannelId" value=""/>
     <add key="IdToBeg" value=""/>
-    <add key="SafeRoleId" value=""/>    
+    <add key="SafeRoleIds" value=""/>
+    <add key="SafeUserIds" value=""/>
   </appSettings>
   <runtime>
     <assemblyBinding xmlns="urn:schemas-microsoft-com:asm.v1">

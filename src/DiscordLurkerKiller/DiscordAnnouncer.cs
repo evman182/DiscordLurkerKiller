@@ -13,16 +13,12 @@ namespace DiscordLurkerKiller
         private readonly RestTextChannel _purgeChannel;
         private readonly RestGuild _guild;
         private readonly Dictionary<ulong, RestGuildUser> _userDict;
-        //private readonly Dictionary<ulong, string>  _roleDictionary;
-        //private readonly ulong _everyoneRole;
 
         public DiscordAnnouncer(DiscordRestClient discordClient, ulong guildId, ulong purgeLogChannelId)
         {
             _guild = discordClient.GetGuildAsync(guildId).Result;
             _purgeChannel = _guild.GetTextChannelAsync(purgeLogChannelId).Result;
             _userDict = _guild.GetUsersAsync().FlattenAsync().Result.ToDictionary(u => u.Id, u => u);
-            //_roleDictionary = _guild.Roles.ToDictionary(r => r.Id, r => r.Name);
-            //_everyoneRole = _guild.EveryoneRole.Id;
         }
 
         private string GetUserName(ulong userId)
@@ -31,8 +27,6 @@ namespace DiscordLurkerKiller
             var nickName = user.Nickname;
             var nickNameString = !string.IsNullOrWhiteSpace(nickName) ? $" ({nickName})" : string.Empty;
             return $"{user.Username}#{user.Discriminator}{nickNameString}";
-            //var userRoles = string.Join("|", user.RoleIds.Where(r => r != _everyoneRole).Select(r => _roleDictionary[r]));
-            //return $"{user.Username}#{user.Discriminator}{nickNameString} ({userRoles})";
         }
 
         public async Task AnnounceAndSendWarningsAsync(List<ulong> accountsToBeWarned)
@@ -91,6 +85,7 @@ namespace DiscordLurkerKiller
 
         public async Task AnnounceKicksAsync(List<ulong> accountsToKick)
         {
+            accountsToKick = accountsToKick.Where(UserHasAlreadyBeenWarned).ToList();
             var textToSend = "Kicking now:\n" + string.Join("\n", accountsToKick.Select(GetUserName).ToList());
             await _purgeChannel.SendMessageAsync(textToSend);
         }
@@ -152,7 +147,7 @@ namespace DiscordLurkerKiller
             {
                 if (_userDict.TryGetValue(a, out var user))
                 {
-                    await user.KickAsync();
+                    await user.KickAsync("Inactivity");
                 }
             }
         }
