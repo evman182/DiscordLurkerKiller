@@ -21,29 +21,24 @@ namespace DiscordLurkerKiller
             _httpClient = httpClient;
         }
 
-        public async Task<Dictionary<ulong, DiscordMemberInfo>> GetJoinDatesAsync()
+        public async Task<Dictionary<ulong, DateTime>> GetJoinDatesAsync()
         {
             var joinDatesJson = await GetJoinDatesJsonAsync();
             var joinDateDictionary = GetDictionaryFromJoinDateJson(joinDatesJson);
             return joinDateDictionary;
         }
 
-        private Dictionary<ulong, DiscordMemberInfo> GetDictionaryFromJoinDateJson(string json)
+        private Dictionary<ulong, DateTime> GetDictionaryFromJoinDateJson(string json)
         {
             var array = JArray.Parse(json);
-            var dict = new Dictionary<ulong, DiscordMemberInfo>();
+            var dict = new Dictionary<ulong, DateTime>();
             foreach (var member in array)
             {
                 var user = member["user"];
                 var id = ulong.Parse(user.Value<string>("id"));
                 var joinDate = DateTime.Parse(member.Value<string>("joined_at"));
-                var roles = new HashSet<ulong>(member["roles"].Values<ulong>().ToList());
 
-                dict.Add(id, new DiscordMemberInfo
-                {
-                    JoinDate = joinDate,
-                    Roles = roles
-                });
+                dict.Add(id, joinDate);
             }
 
             return dict;

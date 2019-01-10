@@ -15,85 +15,33 @@ namespace DiscordLurkerKiller
         private static readonly ulong GuildId = ulong.Parse(ConfigurationManager.AppSettings["DiscordGuildId"]);
         private static readonly string DiscordBotToken = ConfigurationManager.AppSettings["DiscordBotToken"];
         private static readonly ulong PurgeLogChannelId = ulong.Parse(ConfigurationManager.AppSettings["PurgeChannelId"]);
-        private static readonly ulong IdToBeg = ulong.Parse(ConfigurationManager.AppSettings["IdToBeg"]);
-        private static readonly string WarningText = ConfigurationManager.AppSettings["WarningText"];
         private static readonly List<ulong> SafeRoleIds = GetSafeRoleIds();
         private static readonly DiscordRestClient DiscordClient = new DiscordRestClient();
         private static readonly DateTime CurrentTime = DateTime.UtcNow;
         private static readonly List<ulong> SafeUserIds = GetSafeUserIds();
-        private const int MinimumAccountAge = 90;
-        private const int WarningHeadsUpNumberDays = 3;
-        private const int DaysLurkingToKick = 30;
+        private const int MinimumAccountAge = 60;
+        private static readonly ulong MemberRoleId = ulong.Parse(ConfigurationManager.AppSettings["MemberRoleId"]);
 
 
         static async Task Main(string[] args)
         {
             await DiscordClient.LoginAsync(TokenType.Bot, DiscordBotToken);
-            var discordInactivityRetriever =
-                new DiscordInactivityRetriever(DiscordClient, HttpClient, GuildId, PurgeLogChannelId, IdToBeg);
-            var lastActivityInfo = await discordInactivityRetriever.GetActivityDatesAsync();
-
+            var guild = await DiscordClient.GetGuildAsync(GuildId);
+            var users = await guild.GetUsersAsync().FlattenAsync();
+            var usersWithoutMemberRole = users.Where(u => !u.IsBot && !u.RoleIds.Contains(MemberRoleId)).ToList();
+            
             var joinDateRetriever = new JoinDateRetriever(HttpClient, GuildId, DiscordBotToken);
             var joinDates = await joinDateRetriever.GetJoinDatesAsync();
 
-            lastActivityInfo = lastActivityInfo.Where(i => joinDates.ContainsKey(i.Id)).ToList();
-            lastActivityInfo.ForEach(i =>
-            {
-                var userInfo = joinDates[i.Id];
-                i.JoinDate = userInfo.JoinDate;
-                i.Roles = userInfo.Roles;
-            });
+            var accountAgeBoundary = CurrentTime.AddDays(-1 * MinimumAccountAge);
+            var usersToKick = usersWithoutMemberRole.Where(u => joinDates[u.Id] <= accountAgeBoundary).ToList();
 
-            var unsafeUsers = lastActivityInfo.Where(i => RolesAreNotSafeRole(i.Roles)
-                                                          && !SafeUserIds.Contains(i.Id)).ToList();
-
-            var accountsToBeWarned = unsafeUsers
-                .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToKick - WarningHeadsUpNumberDays
-                            && UserIsOlderThanNumberOfDays(x, MinimumAccountAge))
-                .Select(x => x.Id)
-                .OrderBy(x => x)
-                .ToList();
-
-            var accountsGoingTomorrow = unsafeUsers
-                .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > (DaysLurkingToKick - 1)
-                            && TimeSinceLastSpoke(x.LastSpokeDate) <= DaysLurkingToKick
-                            && UserIsOlderThanNumberOfDays(x, WarningHeadsUpNumberDays + MinimumAccountAge - 1))
-                .Select(x => x.Id)
-                .OrderBy(x => x)
-                .ToList();
-
-            var accountsToKick = unsafeUsers
-                .Where(x => TimeSinceLastSpoke(x.LastSpokeDate) > DaysLurkingToKick
-                            && UserIsOlderThanNumberOfDays(x, WarningHeadsUpNumberDays + MinimumAccountAge))
-                .Select(x => x.Id)
-                .OrderBy(x => x)
-                .ToList();
-
-            var discordAnnouncer = new DiscordAnnouncer(DiscordClient, GuildId, PurgeLogChannelId, WarningText);
-            await discordAnnouncer.AnnounceAndSendWarningsAsync(accountsToBeWarned);
-            await discordAnnouncer.AnnounceTomorrowsKicksAsync(accountsGoingTomorrow);
-            await discordAnnouncer.AnnounceKicksAsync(accountsToKick);
-            await discordAnnouncer.PerformKicksAsync(accountsToKick);
-
-        }
-
-        private static bool UserIsOlderThanNumberOfDays(UserActivityInfo userInfo, int days)
-        {
-            return userInfo.JoinDate < DateTime.UtcNow.AddDays(-1 * days);
-        }
-
-        private static bool RolesAreNotSafeRole(HashSet<ulong> userRoles)
-        {
-            if (!SafeRoleIds.Any())
-                return true;
-
-            foreach (var safeRole in SafeRoleIds)
-            {
-                if (userRoles.Contains(safeRole))
-                    return false;
-            }
-
-            return true;
+            var userStrings = usersToKick.Select(r =>
+                r.Username + "#" + r.Discriminator +
+                (string.IsNullOrWhiteSpace(r.Nickname)
+                    ? string.Empty
+                    : $" ({r.Nickname})"));
+            var usersToKickString = string.Join(Environment.NewLine, userStrings.OrderBy(u => u));
         }
 
         private static List<ulong> GetSafeRoleIds()
@@ -112,12 +60,6 @@ namespace DiscordLurkerKiller
                 return new List<ulong>();
 
             return safeRoleIdsString.Split(',').Select(ulong.Parse).ToList();
-        }
-
-        private static double TimeSinceLastSpoke(DateTime lastSpoke)
-        {
-            var timeSinceLastSpoke = (CurrentTime - lastSpoke).TotalDays;
-            return timeSinceLastSpoke;
         }
     }
 }
