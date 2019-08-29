@@ -60,13 +60,8 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="DiscordAnnouncer.cs" />
-    <Compile Include="DiscordInactivityRetriever.cs" />
-    <Compile Include="DiscordMemberInfo.cs" />
-    <Compile Include="JoinDateRetriever.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="UserActivityInfo.cs" />
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
