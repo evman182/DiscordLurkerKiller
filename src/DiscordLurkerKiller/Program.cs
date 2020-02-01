@@ -23,7 +23,7 @@ namespace DiscordLurkerKiller
         {
             await DiscordClient.LoginAsync(TokenType.Bot, DiscordBotToken);
             var guild = await DiscordClient.GetGuildAsync(GuildId);
-            var users = (await guild.GetUsersAsync().FlattenAsync()).ToList();
+            var users = await guild.GetUsersAsync().Flatten().ToListAsync();
 
             var inactivityThreshold = CurrentTime.AddDays(-1 * InactivityTimeoutDays);
             var eligibleMembersToKick = users
@@ -46,7 +46,7 @@ namespace DiscordLurkerKiller
                 }
 
                 Console.WriteLine($"{DateTime.Now} Starting channel {channel.Name}");
-                var firstMessage = (await channel.GetMessagesAsync(1).FlattenAsync()).SingleOrDefault();
+                var firstMessage = await channel.GetMessagesAsync(1).Flatten().SingleOrDefaultAsync();
 
                 if (firstMessage == null)
                 {
@@ -70,7 +70,7 @@ namespace DiscordLurkerKiller
                 var processedMessages = 1;
                 while (true)
                 {
-                    var messages = (await channel.GetMessagesAsync(getMessagesBeforeId, Direction.Before).FlattenAsync());
+                    var messages = await channel.GetMessagesAsync(getMessagesBeforeId, Direction.Before).Flatten().ToListAsync();
 
                     // No more messages to process for channel
                     if (!messages.Any())
@@ -134,7 +134,7 @@ namespace DiscordLurkerKiller
         private static List<ulong> GetSafeRoleIds()
         {
             var safeRoleIdsString = ConfigurationManager.AppSettings["SafeRoleIds"];
-            if(string.IsNullOrWhiteSpace(safeRoleIdsString))
+            if (string.IsNullOrWhiteSpace(safeRoleIdsString))
                 return new List<ulong>();
 
             return safeRoleIdsString.Split(',').Select(ulong.Parse).ToList();
