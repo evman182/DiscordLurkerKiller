@@ -3,10 +3,6 @@
   <appSettings>
     <add key="DiscordBotToken" value=""/>
     <add key="DiscordGuildId" value=""/>
-    <add key="PurgeChannelId" value=""/>
-    <add key="IdToBeg" value=""/>
     <add key="SafeRoleIds" value=""/>
-    <add key="SafeUserIds" value=""/>
-    <add key="WarningText" value=""/>
   </appSettings>
 </configuration>
